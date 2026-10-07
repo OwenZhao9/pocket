@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pocket",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "triggers": { "crons": ["* * * * *"] },
+  "kv_namespaces": [{ "binding": "KV", "id": "040369c53f3d46548e95300c4ba78131" }],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/.well-known/*"]
+  },
+  "vars": {
+    "FUJI_RPC": "https://api.avax-test.network/ext/bc/C/rpc",
+    "IOS_APP_ID": "87TM98S5XS.com.owenzhao.pocket"
+  },
+  "observability": { "enabled": true }
+}
