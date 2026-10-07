@@ -7,7 +7,7 @@ import {
 import { toViemAccount } from "@category-labs/mera/viem";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import type { LocalAccount } from "viem";
 import { getItem, removeItem, setItem } from "./storage";
 import { rpId, webAuthnClient } from "./webauthn";
@@ -19,11 +19,14 @@ const PRF_SALT = sha256(utf8ToBytes("pocket.prf.v1"));
 const HKDF_SALT = utf8ToBytes("pocket");
 const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 const CREDENTIAL_KEY = "pocket.credential";
+const DEMO_SEED_KEY = "pocket.demo-seed";
 
 export interface Unlocked {
   account: LocalAccount;
   journalKey: Uint8Array;
-  credential: PasskeyCredentialMetadata;
+  /// Absent for a demo account.
+  credential?: PasskeyCredentialMetadata;
+  kind: "passkey" | "demo";
   lock(): void;
 }
 
@@ -41,16 +44,35 @@ function deriveAccountKey(prf: Uint8Array): Uint8Array {
   }
 }
 
-function fromPrf(prf: Uint8Array, credential: PasskeyCredentialMetadata): Unlocked {
-  const accountKey = deriveAccountKey(prf);
+function fromSeed(seed: Uint8Array, kind: Unlocked["kind"], credential?: PasskeyCredentialMetadata): Unlocked {
+  const accountKey = deriveAccountKey(seed);
   const session = createSecp256k1SigningSession({ privateKey: accountKey });
   accountKey.fill(0);
   return {
     account: toViemAccount(session),
-    journalKey: derive(prf, "pocket/journal/v1"),
+    journalKey: derive(seed, "pocket/journal/v1"),
     credential,
+    kind,
     lock: () => session.end(),
   };
+}
+
+const fromPrf = (prf: Uint8Array, credential: PasskeyCredentialMetadata) => fromSeed(prf, "passkey", credential);
+
+/// Fallback for browsers whose passkeys cannot evaluate PRF, so a judge on any browser can
+/// still try the product. A random seed stands in for the PRF output and is kept in this
+/// browser's storage; everything downstream (key derivation, journal encryption) is identical.
+export async function storedDemoSeed(): Promise<boolean> {
+  return (await getItem(DEMO_SEED_KEY)) !== null;
+}
+
+export async function openDemoAccount(): Promise<Unlocked> {
+  let hex = await getItem(DEMO_SEED_KEY);
+  if (!hex) {
+    hex = bytesToHex(randomBytes(32));
+    await setItem(DEMO_SEED_KEY, hex);
+  }
+  return fromSeed(hexToBytes(hex), "demo");
 }
 
 export async function storedCredential(): Promise<PasskeyCredentialMetadata | null> {

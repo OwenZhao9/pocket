@@ -120,7 +120,7 @@ function ClosedCard({ p }: { p: Position }) {
         </Text>
         <Text style={styles.time}>
           {clock(p.closedAt)} {p.closedByTrigger ? "· 规则自动卖出" : "· 手动平仓"}
-          {p.receiptMessageId ? " · 回执已通过 ICM 写入 Pocket L1" : ""}
+          {p.receiptMessageId ? " · 回执已通过 ICM 发往 Pocket L1" : ""}
         </Text>
       </View>
       {r && <Text style={[styles.closedPnl, { color: tone }]}>{pct(r.pct)}</Text>}
@@ -129,7 +129,7 @@ function ClosedCard({ p }: { p: Position }) {
 }
 
 export function Positions() {
-  const { positions, keeper } = useStore();
+  const { positions, keeper, syncingTrade } = useStore();
   const open = positions.filter((p) => p.open);
   const closed = positions.filter((p) => !p.open);
   const auto = closed.filter((p) => p.closedByTrigger).length;
@@ -149,7 +149,11 @@ export function Positions() {
       </Card>
 
       <Label style={styles.section}>持仓中 {open.length ? `· ${open.length}` : ""}</Label>
-      {open.length === 0 ? <Text style={styles.empty}>还没有持仓。去「交易」选个方向。</Text> : open.map((p) => <OpenCard key={String(p.id)} p={p} />)}
+      {open.length === 0 ? (
+        <Text style={styles.empty}>{syncingTrade ? "刚成交的仓位正在从链上读取…" : "还没有持仓。去「交易」选个方向。"}</Text>
+      ) : (
+        open.map((p) => <OpenCard key={String(p.id)} p={p} />)
+      )}
 
       {closed.length > 0 && (
         <>

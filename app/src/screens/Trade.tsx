@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { parseUnits } from "viem";
-import { openPosition, ruleLevels } from "../chain";
+import { openPosition, REVERTS, ruleLevels } from "../chain";
 import { USD_DECIMALS } from "../config";
 import { ago, price as fmtPrice, usd } from "../format";
 import { useStore } from "../store";
@@ -13,7 +13,8 @@ const AMOUNTS = [5, 10, 25, 50];
 const RULES = [0, 1, 2, 5];
 
 export function Trade({ onDone }: { onDone: () => void }) {
-  const { session, price, balances, onboarding, showToast, refresh, record } = useStore();
+  const { session, price, balances, onboarding, dripFailed, retryDrip, showToast, refresh, record, markTradeConfirmed } =
+    useStore();
   const [isLong, setIsLong] = useState<boolean | null>(null);
   const [amount, setAmount] = useState(10);
   const [rule, setRule] = useState(1);
@@ -39,6 +40,7 @@ export function Trade({ onDone }: { onDone: () => void }) {
       });
       setBusy(false);
       setIsLong(null);
+      markTradeConfirmed();
       onDone();
       void refresh();
     } catch (e) {
@@ -46,7 +48,13 @@ export function Trade({ onDone }: { onDone: () => void }) {
       const msg = (e as Error).message ?? "";
       showToast({
         tone: "error",
-        text: /InvalidTriggers/.test(msg) ? "价格刚刚更新,规则需要按新价格重设,再点一次" : "没有成交,再试一次",
+        text: msg.includes(REVERTS.invalidTriggers)
+          ? "价格刚刚更新,规则需要按新价格重设,再点一次"
+          : msg.includes(REVERTS.stalePrice)
+            ? "价格源暂时没有更新,稍后再试"
+            : msg.includes(REVERTS.insufficientLiquidity)
+              ? "资金池暂时不够,换个小一点的金额"
+              : "没有成交,再试一次",
       });
     } finally {
       setBusy(false);
@@ -70,6 +78,12 @@ export function Trade({ onDone }: { onDone: () => void }) {
             {onboarding ? "正在发放新手资金…" : balances ? `${usd(balances.usd)} pUSD` : "—"}
           </Text>
         </Row>
+        {dripFailed && (
+          <Row style={{ justifyContent: "space-between", marginTop: space.m }}>
+            <Text style={styles.dripFailed}>新手资金没领到(网络繁忙)</Text>
+            <Button tone="ghost" style={{ height: 38 }} title="重新领取" onPress={retryDrip} />
+          </Row>
+        )}
       </Card>
 
       <Label style={styles.section}>你觉得接下来</Label>
@@ -142,6 +156,7 @@ const styles = StyleSheet.create({
   price: { ...type.hero, color: colors.text, marginTop: space.xs },
   meta: { ...type.small, color: colors.sub, marginTop: space.xs },
   balance: { ...type.body, ...type.num, color: colors.text, fontWeight: "700" },
+  dripFailed: { ...type.small, color: colors.warn },
   section: { marginTop: space.xl, marginBottom: space.m },
   side: {
     flex: 1,

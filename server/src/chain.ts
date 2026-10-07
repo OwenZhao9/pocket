@@ -30,11 +30,16 @@ export const chain = avalancheFuji;
 export const NETWORK = `eip155:${avalancheFuji.id}` as const;
 export const EXPLORER = "https://testnet.snowtrace.io";
 
+/// Fuji finalizes in about a second; viem's default 4s receipt polling would hide that.
+const POLLING_INTERVAL = 500;
+
 export function publicClient(env: Env) {
-  return createPublicClient({ chain, transport: http(env.FUJI_RPC) });
+  return createPublicClient({ chain, transport: http(env.FUJI_RPC, { batch: true }), pollingInterval: POLLING_INTERVAL });
 }
 
 export function executorClient(env: Env) {
   const account = privateKeyToAccount(env.EXECUTOR_PRIVATE_KEY);
-  return createWalletClient({ account, chain, transport: http(env.FUJI_RPC) }).extend(publicActions);
+  return createWalletClient({ account, chain, transport: http(env.FUJI_RPC), pollingInterval: POLLING_INTERVAL }).extend(
+    publicActions,
+  );
 }

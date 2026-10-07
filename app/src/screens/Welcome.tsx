@@ -1,7 +1,7 @@
 import { isMeraError, type PasskeyCredentialMetadata } from "@category-labs/mera";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { createAccount, storedCredential, unlock } from "../account";
+import { createAccount, openDemoAccount, storedCredential, storedDemoSeed, unlock } from "../account";
 import { useStore } from "../store";
 import { Button } from "../ui/components";
 import { failure, success } from "../ui/haptics";
@@ -18,14 +18,16 @@ function explain(e: unknown): string {
 export function Welcome() {
   const { setSession } = useStore();
   const [known, setKnown] = useState<PasskeyCredentialMetadata | null>(null);
-  const [busy, setBusy] = useState<"create" | "unlock" | null>(null);
+  const [hasDemo, setHasDemo] = useState(false);
+  const [busy, setBusy] = useState<"create" | "unlock" | "demo" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     storedCredential().then(setKnown);
+    storedDemoSeed().then(setHasDemo);
   }, []);
 
-  const run = async (kind: "create" | "unlock", fn: () => Promise<Awaited<ReturnType<typeof unlock>>>) => {
+  const run = async (kind: "create" | "unlock" | "demo", fn: () => Promise<Awaited<ReturnType<typeof unlock>>>) => {
     setBusy(kind);
     setError(null);
     try {
@@ -77,7 +79,26 @@ export function Welcome() {
           busy={busy === "unlock" && !known}
           onPress={() => run("unlock", () => unlock(null))}
         />
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error && (
+          <View style={styles.fallback}>
+            <Text style={styles.error}>{error}</Text>
+            <Button
+              tone="ghost"
+              style={{ marginTop: space.m }}
+              title="用演示账户继续"
+              busy={busy === "demo"}
+              onPress={() => run("demo", openDemoAccount)}
+            />
+            <Text style={styles.fallbackNote}>
+              演示账户不用通行密钥,钥匙只保存在这个浏览器里,功能完全一样,只用于试用。
+            </Text>
+          </View>
+        )}
+        {!error && hasDemo && !known && (
+          <Text style={styles.demoLink} onPress={() => run("demo", openDemoAccount)}>
+            继续使用这个浏览器里的演示账户
+          </Text>
+        )}
         <Text style={styles.foot}>Avalanche Fuji 测试网 · 所有资金均为测试币</Text>
       </View>
     </View>
@@ -108,5 +129,8 @@ const styles = StyleSheet.create({
   stepDesc: { ...type.small, color: colors.sub, marginTop: 2, lineHeight: 18 },
   actions: { marginBottom: space.l },
   error: { ...type.small, color: colors.up, marginTop: space.m, textAlign: "center" },
+  fallback: { marginTop: space.s },
+  fallbackNote: { ...type.small, color: colors.faint, marginTop: space.s, textAlign: "center", lineHeight: 18 },
+  demoLink: { ...type.small, color: colors.sub, marginTop: space.l, textAlign: "center", textDecorationLine: "underline" },
   foot: { ...type.small, color: colors.faint, marginTop: space.l, textAlign: "center" },
 });

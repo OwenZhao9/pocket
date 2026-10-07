@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { isAddress, type Address } from "viem";
+import { encodeFunctionData, isAddress, type Address } from "viem";
 import { faucetAbi } from "./abi";
 import { addresses, chain, executorClient, EXPLORER, NETWORK, publicClient, TREASURY, type Env } from "./chain";
 import { marketInsight } from "./insight";
@@ -34,10 +34,32 @@ app.get("/api/config", (c) =>
 
 /// One-time starter kit for a new address: trading dollars, gas, and a little USDC.
 /// The faucet contract enforces once-per-address on-chain.
+const DRIPS_PER_IP_PER_HOUR = 10;
+
+/// The executor key is shared with the keeper cron, so two transactions can race for a nonce.
+/// Those failures are transient: resend with a fresh nonce.
+async function sendWithNonceRetry<T>(send: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send();
+    } catch (e) {
+      const msg = (e as Error).message ?? "";
+      if (attempt >= 3 || !/nonce|replacement|underpriced|already known/i.test(msg)) throw e;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+}
+
 app.post("/api/drip", async (c) => {
   const body = await c.req.json<{ address?: string }>().catch(() => ({}) as { address?: string });
   const address = body.address;
   if (!address || !isAddress(address)) return c.json({ error: "invalid address" }, 400);
+
+  // Each address can claim once on-chain, but new addresses are free to mint, so also cap per IP.
+  const ip = c.req.header("cf-connecting-ip") ?? "unknown";
+  const bucket = `drip:ip:${ip}:${Math.floor(Date.now() / 3_600_000)}`;
+  const used = Number((await c.env.KV.get(bucket)) ?? "0");
+  if (used >= DRIPS_PER_IP_PER_HOUR) return c.json({ error: "rate limited" }, 429);
 
   const reader = publicClient(c.env);
   const claimed = await reader.readContract({
@@ -48,15 +70,35 @@ app.post("/api/drip", async (c) => {
   });
   if (claimed) return c.json({ claimed: true });
 
-  const writer = executorClient(c.env);
-  const tx = await writer.writeContract({
-    address: addresses.faucet,
-    abi: faucetAbi,
-    functionName: "drip",
-    args: [address as Address],
+  // Fixed gas (drip uses ~168k) and fee caps skip estimation round trips; Fuji's base fee is
+  // a few hundred wei, so 1 gwei is only a ceiling.
+  const account = executorClient(c.env).account;
+  const data = encodeFunctionData({ abi: faucetAbi, functionName: "drip", args: [address as Address] });
+  const started = Date.now();
+  const tx = await sendWithNonceRetry(async () => {
+    const nonce = await reader.getTransactionCount({ address: account.address, blockTag: "pending" });
+    const serializedTransaction = await account.signTransaction({
+      chainId: chain.id,
+      type: "eip1559",
+      to: addresses.faucet,
+      data,
+      gas: 220_000n,
+      nonce,
+      maxFeePerGas: 1_000_000_000n,
+      maxPriorityFeePerGas: 1_000n,
+    });
+    return reader.sendRawTransaction({ serializedTransaction });
   });
+  await c.env.KV.put(bucket, String(used + 1), { expirationTtl: 3_700 });
   const receipt = await reader.waitForTransactionReceipt({ hash: tx, timeout: 20_000 });
-  return c.json({ claimed: true, tx, status: receipt.status, explorer: `${EXPLORER}/tx/${tx}` });
+  return c.json({
+    claimed: true,
+    tx,
+    status: receipt.status,
+    /// Server-side time from signing to a confirmed receipt, as a plain measure of Fuji latency.
+    confirmedInMs: Date.now() - started,
+    explorer: `${EXPLORER}/tx/${tx}`,
+  });
 });
 
 /// When the rule engine last ran and what it did.

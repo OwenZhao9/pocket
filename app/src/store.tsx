@@ -1,3 +1,4 @@
+import type { Address } from "viem";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { Unlocked } from "./account";
 import { drip, keeperStatus, type KeeperStatus } from "./api";
@@ -19,6 +20,11 @@ interface Store {
   keeper: KeeperStatus | null;
   journal: JournalEntry[];
   onboarding: boolean;
+  dripFailed: boolean;
+  retryDrip(): Promise<void>;
+  /// True from a confirmed trade until the next positions read includes it.
+  syncingTrade: boolean;
+  markTradeConfirmed(): void;
   toast: Toast | null;
   showToast(t: Toast): void;
   refresh(): Promise<void>;
@@ -41,6 +47,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [keeper, setKeeper] = useState<KeeperStatus | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [onboarding, setOnboarding] = useState(false);
+  const [dripFailed, setDripFailed] = useState(false);
+  const [syncingTrade, setSyncingTrade] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,7 +62,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const owner = session?.account.address;
     const tasks: Promise<unknown>[] = [getPrice().then(setPrice), keeperStatus().then(setKeeper)];
     if (owner) {
-      tasks.push(getBalances(owner).then(setBalances), getPositions(owner).then(setPositions));
+      tasks.push(
+        getBalances(owner).then(setBalances),
+        getPositions(owner).then((p) => {
+          setPositions(p);
+          // A read that started before the trade can land after it; only an open position ends the wait.
+          if (p.some((x) => x.open)) setSyncingTrade(false);
+        }),
+      );
     }
     await Promise.allSettled(tasks);
   }, [session]);
@@ -70,6 +85,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [session],
   );
 
+  /// Starter kit for a new account. Retries a few times with backoff before handing the
+  /// retry to the user, so a transient RPC or nonce hiccup never strands a first-time visitor.
+  const fundIfNew = useCallback(
+    async (owner: Address) => {
+      const b = await getBalances(owner).catch(() => null);
+      setBalances(b);
+      if (!b || b.usd !== 0n || b.gas !== 0n) return;
+      setOnboarding(true);
+      setDripFailed(false);
+      for (const wait of [0, 3_000, 8_000, 15_000]) {
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        try {
+          const r = await drip(owner);
+          if (r.tx) showToast({ text: "新手资金已到账:100 pUSD + 手续费", tx: r.tx });
+          setOnboarding(false);
+          void refresh();
+          return;
+        } catch {}
+      }
+      setOnboarding(false);
+      setDripFailed(true);
+    },
+    [refresh, showToast],
+  );
+
+  const retryDrip = useCallback(async () => {
+    if (session) await fundIfNew(session.account.address);
+  }, [session, fundIfNew]);
+
   // On unlock: load the journal and hand a brand-new account its starter kit.
   useEffect(() => {
     if (!session) return;
@@ -77,22 +121,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     loadJournal(owner, session.journalKey)
       .then(setJournal)
       .catch(() => setJournal([]));
-    (async () => {
-      const b = await getBalances(owner).catch(() => null);
-      setBalances(b);
-      if (b && b.usd === 0n && b.gas === 0n) {
-        setOnboarding(true);
-        try {
-          const r = await drip(owner);
-          if (r.tx) showToast({ text: "新手资金已到账:100 pUSD + 手续费", tx: r.tx });
-        } catch {
-          showToast({ text: "新手资金暂时领不到,稍后会自动重试", tone: "error" });
-        } finally {
-          setOnboarding(false);
-          void refresh();
-        }
-      }
-    })();
+    void fundIfNew(owner);
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -121,6 +150,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         keeper,
         journal,
         onboarding,
+        dripFailed,
+        retryDrip,
+        syncingTrade,
+        markTradeConfirmed: () => {
+          setSyncingTrade(true);
+          setTimeout(() => setSyncingTrade(false), 20_000);
+        },
         toast,
         showToast,
         refresh,

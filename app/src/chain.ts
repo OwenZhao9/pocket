@@ -1,19 +1,70 @@
 import {
   createPublicClient,
-  createWalletClient,
+  encodeFunctionData,
   http,
   parseSignature,
+  BaseError,
   type Address,
   type Hash,
+  type Hex,
   type LocalAccount,
 } from "viem";
 import { erc20Abi, marketAbi, priceSourceAbi, publisherAbi } from "./abi";
 import { addresses, chain, RPC_URL } from "./config";
 
-export const reader = createPublicClient({ chain, transport: http(RPC_URL) });
+/// Fuji finalizes in about a second; viem's default 4s receipt polling would hide that.
+/// Batching folds concurrent reads into one HTTP round trip.
+export const reader = createPublicClient({
+  chain,
+  transport: http(RPC_URL, { batch: true }),
+  pollingInterval: 500,
+});
 
-function writer(account: LocalAccount) {
-  return createWalletClient({ account, chain, transport: http(RPC_URL) });
+/// Gas limits measured on Fuji with headroom (open ~261k, close ~130k, triggers ~50k).
+/// Fixing them, and the fee caps, skips the estimation round trips viem would otherwise make.
+const GAS = { open: 320_000n, close: 180_000n, triggers: 100_000n } as const;
+/// Fuji's base fee is a few hundred wei; 1 gwei is a ceiling, not the price paid.
+/// It also keeps the up-front balance check (limit x max fee) far below the starter gas grant.
+const MAX_FEE_PER_GAS = 1_000_000_000n;
+const MAX_PRIORITY_FEE_PER_GAS = 1_000n;
+
+/// Signs on the device and broadcasts directly: one round trip for the nonce, one to send.
+async function send(account: LocalAccount, to: Address, data: Hex, gas: bigint, nonce?: number): Promise<Hash> {
+  const txNonce = nonce ?? (await reader.getTransactionCount({ address: account.address, blockTag: "pending" }));
+  const serializedTransaction = await account.signTransaction({
+    chainId: chain.id,
+    type: "eip1559",
+    to,
+    data,
+    gas,
+    nonce: txNonce,
+    maxFeePerGas: MAX_FEE_PER_GAS,
+    maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS,
+  });
+  const hash = await reader.sendRawTransaction({ serializedTransaction });
+  const receipt = await reader.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error(`reverted ${await revertReason(account.address, to, data)}`);
+  return hash;
+}
+
+/// Contract errors the UI explains to the user, by 4-byte selector.
+export const REVERTS = {
+  invalidTriggers: "0x94a81241",
+  stalePrice: "0x6fb3b185",
+  insufficientLiquidity: "0xbb55fd27",
+} as const;
+
+/// Only on the failure path: replay the call to recover the revert selector, since sending
+/// with a fixed gas limit skips the estimation that would normally surface it.
+async function revertReason(from: Address, to: Address, data: Hex): Promise<string> {
+  try {
+    await reader.call({ account: from, to, data });
+    return "unknown";
+  } catch (e) {
+    const found = e instanceof BaseError ? e.walk((x) => typeof (x as { data?: unknown }).data === "string") : null;
+    const raw = (found as { data?: string } | null)?.data;
+    return raw ? raw.slice(0, 10) : "unknown";
+  }
 }
 
 export interface Price {
@@ -146,12 +197,15 @@ export async function openPosition(
   tp: bigint,
   sl: bigint,
 ): Promise<{ hash: Hash; id?: bigint }> {
-  const nonce = await reader.readContract({
-    address: addresses.pocketUSD,
-    abi: erc20Abi,
-    functionName: "nonces",
-    args: [account.address],
-  });
+  const [nonce, txNonce] = await Promise.all([
+    reader.readContract({
+      address: addresses.pocketUSD,
+      abi: erc20Abi,
+      functionName: "nonces",
+      args: [account.address],
+    }),
+    reader.getTransactionCount({ address: account.address, blockTag: "pending" }),
+  ]);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
   const signature = await account.signTypedData({
     domain: { name: "Pocket USD", version: "1", chainId: chain.id, verifyingContract: addresses.pocketUSD },
@@ -169,34 +223,20 @@ export async function openPosition(
   });
   const { v, r, s, yParity } = parseSignature(signature);
 
-  const hash = await writer(account).writeContract({
-    address: addresses.market,
+  const data = encodeFunctionData({
     abi: marketAbi,
     functionName: "openWithPermit",
     args: [isLong, margin, tp, sl, deadline, Number(v ?? BigInt(yParity + 27)), r, s],
   });
-  await reader.waitForTransactionReceipt({ hash });
-  return { hash };
+  return { hash: await send(account, addresses.market, data, GAS.open, txNonce) };
 }
 
 export async function closePosition(account: LocalAccount, id: bigint): Promise<Hash> {
-  const hash = await writer(account).writeContract({
-    address: addresses.market,
-    abi: marketAbi,
-    functionName: "close",
-    args: [id],
-  });
-  await reader.waitForTransactionReceipt({ hash });
-  return hash;
+  const data = encodeFunctionData({ abi: marketAbi, functionName: "close", args: [id] });
+  return send(account, addresses.market, data, GAS.close);
 }
 
 export async function setRule(account: LocalAccount, id: bigint, tp: bigint, sl: bigint): Promise<Hash> {
-  const hash = await writer(account).writeContract({
-    address: addresses.market,
-    abi: marketAbi,
-    functionName: "setTriggers",
-    args: [id, tp, sl],
-  });
-  await reader.waitForTransactionReceipt({ hash });
-  return hash;
+  const data = encodeFunctionData({ abi: marketAbi, functionName: "setTriggers", args: [id, tp, sl] });
+  return send(account, addresses.market, data, GAS.triggers);
 }

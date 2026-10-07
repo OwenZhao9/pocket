@@ -1,9 +1,10 @@
 import * as Clipboard from "expo-clipboard";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { EXPLORER } from "./src/config";
+import { JudgePanel } from "./src/JudgePanel";
 import { short } from "./src/format";
 import { Insight } from "./src/screens/Insight";
 import { Journal } from "./src/screens/Journal";
@@ -41,8 +42,11 @@ function Header() {
           onLongPress={() => Linking.openURL(`${EXPLORER}/address/${address}`)}
           style={styles.pill}
         >
-          <View style={styles.liveDot} />
-          <Text style={styles.pillText}>{short(address)}</Text>
+          <View style={[styles.liveDot, session.kind === "demo" && { backgroundColor: colors.warn }]} />
+          <Text style={styles.pillText}>
+            {session.kind === "demo" ? "演示账户 · " : ""}
+            {short(address)}
+          </Text>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={() => setSession(null)} style={styles.lock}>
           <Text style={styles.lockText}>锁定</Text>
@@ -56,9 +60,11 @@ function ToastView() {
   const { toast } = useStore();
   if (!toast) return null;
   return (
-    <View style={[styles.toast, toast.tone === "error" && { borderColor: colors.up }]} pointerEvents="box-none">
-      <Text style={styles.toastText}>{toast.text}</Text>
-      {toast.tx && <TxLink hash={toast.tx} />}
+    <View style={styles.toastLayer} pointerEvents="box-none">
+      <View style={[styles.toast, toast.tone === "error" && { borderColor: colors.up }]}>
+        <Text style={styles.toastText}>{toast.text}</Text>
+        {toast.tx && <TxLink hash={toast.tx} />}
+      </View>
     </View>
   );
 }
@@ -99,15 +105,38 @@ function Main() {
   );
 }
 
+/// On a wide browser window the app sits in a phone frame next to a panel for judges;
+/// everywhere else it fills the screen as a normal mobile app.
+function Shell() {
+  const { width, height } = useWindowDimensions();
+  if (Platform.OS === "web" && width >= 1100) {
+    const frameHeight = Math.min(860, height - 48);
+    return (
+      <View style={styles.wide}>
+        <View style={[styles.phone, { height: frameHeight }]}>
+          <Main />
+          <ToastView />
+        </View>
+        <View style={[styles.panel, { height: frameHeight }]}>
+          <JudgePanel />
+        </View>
+      </View>
+    );
+  }
+  return (
+    <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
+      <StatusBar style="light" />
+      <Main />
+      <ToastView />
+    </SafeAreaView>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
-          <StatusBar style="light" />
-          <Main />
-          <ToastView />
-        </SafeAreaView>
+        <Shell />
       </StoreProvider>
     </SafeAreaProvider>
   );
@@ -115,6 +144,24 @@ export default function App() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  wide: {
+    flex: 1,
+    backgroundColor: "#060608",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 64,
+  },
+  panel: { width: 460, flexShrink: 0 },
+  phone: {
+    width: 400,
+    flexShrink: 0,
+    borderRadius: 52,
+    borderWidth: 10,
+    borderColor: "#24242C",
+    backgroundColor: colors.bg,
+    overflow: "hidden",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -154,13 +201,10 @@ const styles = StyleSheet.create({
   tabText: { ...type.body, color: colors.faint, fontSize: 15 },
   tabOn: { color: colors.text, fontWeight: "700" },
   tabMark: { width: 18, height: 3, borderRadius: 2, backgroundColor: colors.text, marginTop: 6 },
+  toastLayer: { position: "absolute", left: 0, right: 0, bottom: 90, alignItems: "center", paddingHorizontal: space.l },
   toast: {
-    position: "absolute",
-    left: space.l,
-    right: space.l,
-    bottom: 90,
+    width: "100%",
     maxWidth: 528,
-    alignSelf: "center",
     backgroundColor: colors.raised,
     borderRadius: radius.m,
     borderWidth: 1,
