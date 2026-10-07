@@ -20,11 +20,11 @@ if ! curl -s -m 3 -X POST -H 'content-type:application/json' \
 fi
 echo "Pocket L1 is up: $RPC"
 
-if ! pgrep -f icm-relayer-1.8.2 >/dev/null; then
+if ! pgrep -f relayer-loop.sh >/dev/null; then
+  pkill -f icm-relayer-1.8.2 || true
   umask 077
   python3 ops/relayer-config.py > "$STATE/relayer-config.json"
-  nohup "$HOME/.avalanche-cli/bin/icm-relayer-1.8.2" --config-file "$STATE/relayer-config.json" \
-    > "$STATE/relayer.log" 2>&1 &
+  nohup ops/relayer-loop.sh "$STATE/relayer-config.json" "$STATE/relayer.log" >/dev/null 2>&1 &
 fi
 # The relayer pulls Fuji's full validator set from the public P-Chain API on start; that call
 # sometimes times out and is retried, so give it a few minutes before reporting.
