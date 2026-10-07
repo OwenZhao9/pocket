@@ -7,7 +7,7 @@
   "triggers": { "crons": ["* * * * *"] },
   "kv_namespaces": [{ "binding": "KV", "id": "040369c53f3d46548e95300c4ba78131" }],
   "assets": {
-    "directory": "./public",
+    "directory": "../app/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/.well-known/*"]

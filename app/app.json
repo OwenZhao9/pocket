@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Pocket",
+    "slug": "pocket",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.owenzhao.pocket",
+      "appleTeamId": "87TM98S5XS",
+      "associatedDomains": [
+        "webcredentials:pocket.photogif.workers.dev"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Pocket",
+      "shortName": "Pocket",
+      "backgroundColor": "#0B0B0E",
+      "themeColor": "#0B0B0E",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "18.0"
+          }
+        }
+      ]
+    ],
+    "scheme": "pocket",
+    "backgroundColor": "#0B0B0E"
+  }
+}
