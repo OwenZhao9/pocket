@@ -21,7 +21,7 @@ Pocket 是一个原生 iOS 应用(同一套代码也导出了网页版给评委�
 - **每笔成交写一张回执到 Pocket 自己的 L1。** C-Chain 上的合约读取真实结果,经 ICM 送到 L1 记账,形成可携带的交易战绩
 
 **亮点:**
-1. Avalanche 上第一个原生移动端交易应用,通行密钥登录在真实 iOS 上跑通
+1. 原生移动端交易应用(Expo,iOS + 网页),通行密钥登录在 iOS 模拟器原生构建和 Mac 版 Chrome 上跑通
 2. 用到第二条评分点名的全部四样能力:性能、L1、ICM、x402
 3. 安全边界是结构性的:服务器拿不到用户私钥,也挪不动用户的钱
 
@@ -30,11 +30,12 @@ Pocket 是一个原生 iOS 应用(同一套代码也导出了网页版给评委�
 **链接:**
 - 在线试用:https://pocket.photogif.workers.dev(电脑上打开是评委视图,附每项能力的链上证据)
 - 代码仓库:https://github.com/OwenZhao9/pocket
-- 演示视频:(录完填)
+- 演示视频:https://youtu.be/f7TgC0h_NZw (仓库内副本 docs/pocket-demo.mp4)
+- 幻灯片:https://github.com/OwenZhao9/pocket/blob/main/docs/pocket-slides.pdf
 
 ---
 
-## 演示视频脚本(约 2 分 30 秒,真机录屏)
+## 演示视频脚本(最初的计划;实际视频为网页版录屏,1 分 49 秒)
 
 开录前:手机连好 Wi-Fi;屏幕录制开着麦;Snowtrace 页面在 Safari 里预先打开一个标签页。
 

@@ -6,6 +6,10 @@ Avalanche 上现有的交易类应用以网页为主。Pocket 是一个 iOS 应�
 
 在线体验:https://pocket.photogif.workers.dev
 
+演示视频:https://youtu.be/f7TgC0h_NZw (1 分 49 秒,网页版录屏;仓库内副本 [docs/pocket-demo.mp4](docs/pocket-demo.mp4))
+
+幻灯片:[docs/pocket-slides.pdf](docs/pocket-slides.pdf)
+
 | 登录 | 交易 | 持仓 | 行情(x402) | 日记 |
 |---|---|---|---|---|
 | ![](docs/screenshots/1-welcome.png) | ![](docs/screenshots/2-trade.png) | ![](docs/screenshots/3-positions.png) | ![](docs/screenshots/4-insight.png) | ![](docs/screenshots/5-journal.png) |
