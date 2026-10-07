@@ -32,6 +32,10 @@ contract PocketMarket is Ownable, ReentrancyGuard {
         uint128 entryPrice;
         uint128 takeProfit; // 8 decimals, 0 = unset
         uint128 stopLoss; // 8 decimals, 0 = unset
+        uint128 exitPrice; // set on close
+        uint128 payout; // set on close
+        uint64 closedAt; // set on close
+        bool closedByTrigger;
     }
 
     error StalePrice(uint256 updatedAt);
@@ -199,7 +203,11 @@ contract PocketMarket is Ownable, ReentrancyGuard {
             margin: margin.toUint128(),
             entryPrice: price.toUint128(),
             takeProfit: takeProfit.toUint128(),
-            stopLoss: stopLoss.toUint128()
+            stopLoss: stopLoss.toUint128(),
+            exitPrice: 0,
+            payout: 0,
+            closedAt: 0,
+            closedByTrigger: false
         });
         _positionsOf[owner_].push(id);
         lockedMargin += margin;
@@ -213,6 +221,10 @@ contract PocketMarket is Ownable, ReentrancyGuard {
         if (!p.open) revert PositionClosed();
         uint256 payout = _payout(p.isLong, p.margin, p.entryPrice, price);
         p.open = false;
+        p.exitPrice = price.toUint128();
+        p.payout = payout.toUint128();
+        p.closedAt = uint64(block.timestamp);
+        p.closedByTrigger = byTrigger;
         lockedMargin -= p.margin;
         emit Closed(id, p.owner, price, payout, byTrigger, msg.sender);
         if (payout > 0) collateral.safeTransfer(p.owner, payout);

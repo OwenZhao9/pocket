@@ -1,7 +1,7 @@
 {
   "chainId": 43113,
-  "deployBlock": 59128848,
-  "market": "0x81CA4797F10eF50eCeb5c95A80cF5d814BfB27d3",
+  "deployBlock": 59129639,
+  "market": "0x81d00d6A3b9bdCE2e5C70dd2C7f11E4E30631012",
   "pocketUSD": "0x176bF1378f945035fe64Ed3efc44d3Ad737F415a",
   "priceFeed": "0x5498BB86BC934c8D34FDA08E81D444153d0D06aD",
   "priceSource": "0xd018ED0cd4b961562346bb5814FDa0A7ef9eA8B8",

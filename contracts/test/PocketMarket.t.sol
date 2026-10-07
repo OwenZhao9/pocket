@@ -146,8 +146,11 @@ contract PocketMarketTest is Test {
         assertTrue(market.triggerReached(id));
         vm.prank(keeper);
         market.executeTrigger(id);
-        (,, bool isOpen,,,,,) = market.positions(id);
+        (,, bool isOpen,,,,,, uint128 exitPrice, uint128 payout,, bool byTrigger) = market.positions(id);
         assertFalse(isOpen);
+        assertEq(exitPrice, 21e8);
+        assertEq(payout, 9.5e6);
+        assertTrue(byTrigger);
     }
 
     function test_InvalidTriggersRejected() public {
@@ -163,7 +166,7 @@ contract PocketMarketTest is Test {
         uint256 id = _open(true, 10 * ONE);
         vm.prank(alice);
         market.setTriggers(id, 25e8, 15e8);
-        (,,,,,, uint128 tp, uint128 sl) = market.positions(id);
+        (,,,,,, uint128 tp, uint128 sl,,,,) = market.positions(id);
         assertEq(tp, 25e8);
         assertEq(sl, 15e8);
 
