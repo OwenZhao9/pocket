@@ -11,8 +11,8 @@ export const evidence = [
   {
     title: "性能",
     body: "服务器发一笔交易,从签名到链上确认实测 2.2–2.6 秒。应用里下一单只需两次网络往返,签名在设备本地完成。",
-    link: `${EXPLORER}/tx/0xdbffd593ee93eec60f851adc82974b18b939e30083396092b2d6a8ba602bb915`,
-    linkText: "看第一笔开仓",
+    link: `${EXPLORER}/tx/0xe512029daeb107141257637df61150965a0fa2baead30e527d3fa686f4ffbb7f`,
+    linkText: "看一笔开仓(permit 和开仓在同一笔交易里)",
   },
   {
     title: "Pocket L1",
