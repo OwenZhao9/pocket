@@ -18,6 +18,8 @@ export const addresses = {
   priceFeed: deployment.priceFeed as Address,
   faucet: deployment.faucet as Address,
   usdc: deployment.usdc as Address,
+  /// Present once the Pocket L1 and its ICM receipt contracts are deployed.
+  receiptPublisher: (deployment as { receiptPublisher?: string }).receiptPublisher as Address | undefined,
 };
 
 /// The treasury receives x402 payments. It is the deployer, whose key never leaves the

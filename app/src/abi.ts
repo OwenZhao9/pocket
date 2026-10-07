@@ -57,6 +57,16 @@ export const marketAbi = [
   },
 ] as const;
 
+export const publisherAbi = [
+  {
+    type: "function",
+    name: "messageIdOf",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
 export const priceSourceAbi = [
   {
     type: "function",

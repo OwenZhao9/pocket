@@ -16,6 +16,46 @@ export const marketAbi = [
   },
 ] as const;
 
+export const marketPositionsAbi = [
+  {
+    type: "function",
+    name: "positions",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "uint256" }],
+    outputs: [
+      { name: "owner", type: "address" },
+      { name: "isLong", type: "bool" },
+      { name: "open", type: "bool" },
+      { name: "openedAt", type: "uint64" },
+      { name: "margin", type: "uint128" },
+      { name: "entryPrice", type: "uint128" },
+      { name: "takeProfit", type: "uint128" },
+      { name: "stopLoss", type: "uint128" },
+      { name: "exitPrice", type: "uint128" },
+      { name: "payout", type: "uint128" },
+      { name: "closedAt", type: "uint64" },
+      { name: "closedByTrigger", type: "bool" },
+    ],
+  },
+] as const;
+
+export const publisherAbi = [
+  {
+    type: "function",
+    name: "messageIdOf",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "publish",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "positionId", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
 export const faucetAbi = [
   {
     type: "function",

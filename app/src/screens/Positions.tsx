@@ -120,6 +120,7 @@ function ClosedCard({ p }: { p: Position }) {
         </Text>
         <Text style={styles.time}>
           {clock(p.closedAt)} {p.closedByTrigger ? "· 规则自动卖出" : "· 手动平仓"}
+          {p.receiptMessageId ? " · 回执已通过 ICM 写入 Pocket L1" : ""}
         </Text>
       </View>
       {r && <Text style={[styles.closedPnl, { color: tone }]}>{pct(r.pct)}</Text>}

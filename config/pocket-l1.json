@@ -1,0 +1,15 @@
+{
+  "name": "Pocket L1",
+  "chainId": 431143,
+  "token": "PKT",
+  "subnetId": "sqZfDfuLVQJLegqCceBny5eXChRASJxA5d4d3sfJ5MoqxSMUT",
+  "blockchainId": "oakJiv5A35aNYD2MRcN8qYUwB3hTya8sohR8BTgUduDb6NKiK",
+  "blockchainIdHex": "0x69c50f3695f59b573f76a4336b8a99745c486a5cebcd0730434dcf348dd2d547",
+  "convertSubnetToL1Tx": "2u8T3XUUvqXXkuiDyitsEzJfnfpsJPMiFwV78qHFZjypJ1QBAn",
+  "validator": "NodeID-ARvmRSikRfAzdHhhS5KhX7RvwguMv2rxM",
+  "validatorManager": "Proof of Authority, initialized",
+  "rpc": "http://127.0.0.1:9650/ext/bc/oakJiv5A35aNYD2MRcN8qYUwB3hTya8sohR8BTgUduDb6NKiK/rpc",
+  "teleporterMessenger": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf",
+  "teleporterRegistry": "0xef0CB3769F111c3Ca9D17CE8499EE7451E6DE2e1",
+  "receiptBook": "0xa34AA4Fe1f6811b478719C64c67F1b7ef08817D2"
+}

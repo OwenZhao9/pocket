@@ -7,7 +7,7 @@ import {
   type Hash,
   type LocalAccount,
 } from "viem";
-import { erc20Abi, marketAbi, priceSourceAbi } from "./abi";
+import { erc20Abi, marketAbi, priceSourceAbi, publisherAbi } from "./abi";
 import { addresses, chain, RPC_URL } from "./config";
 
 export const reader = createPublicClient({ chain, transport: http(RPC_URL) });
@@ -41,6 +41,7 @@ export interface Position {
   closedAt: number;
   closedByTrigger: boolean;
   value?: bigint; // what it would pay now, for open positions
+  receiptMessageId?: string; // set once the result was sent to the Pocket L1 over ICM
 }
 
 export async function getPrice(): Promise<Price> {
@@ -107,6 +108,21 @@ export async function getPositions(owner: Address): Promise<Position[]> {
     });
     quotes.forEach((q, i) => {
       if (q.status === "success") open[i].value = q.result[0];
+    });
+  }
+  const closed = positions.filter((p) => !p.open);
+  const publisher = addresses.receiptPublisher;
+  if (publisher && closed.length > 0) {
+    const ids = await reader.multicall({
+      contracts: closed.map((p) => ({
+        address: publisher,
+        abi: publisherAbi,
+        functionName: "messageIdOf" as const,
+        args: [p.id] as const,
+      })),
+    });
+    ids.forEach((r, i) => {
+      if (r.status === "success" && BigInt(r.result) !== 0n) closed[i].receiptMessageId = r.result;
     });
   }
   return positions.sort((a, b) => Number(b.id - a.id));

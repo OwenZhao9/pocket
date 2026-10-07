@@ -16,6 +16,7 @@ export const addresses = {
   priceSource: deployment.priceSource as Address,
   faucet: deployment.faucet as Address,
   usdc: deployment.usdc as Address,
+  receiptPublisher: (deployment as { receiptPublisher?: string }).receiptPublisher as Address | undefined,
 };
 
 export const USD_DECIMALS = 6;
