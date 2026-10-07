@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { buyInsight, type PaidInsight } from "../api";
+import { EXPLORER } from "../config";
 import { pct, usd } from "../format";
 import { useStore } from "../store";
 import { Button, Card, Label, Row, TxLink } from "../ui/components";
@@ -28,6 +29,10 @@ function Spark({ points, width, height }: { points: { price: number }[]; width: 
     </Svg>
   );
 }
+
+/// The aggregator the market settles on; its source is verified on Snowtrace, so anyone can
+/// read the same rounds this card is computed from.
+const CHAINLINK_AVAX_USD = "0x5498BB86BC934c8D34FDA08E81D444153d0D06aD";
 
 export function Insight() {
   const { session, balances, showToast, refresh } = useStore();
@@ -99,6 +104,12 @@ export function Insight() {
             ).toFixed(2)}%。每 10 分钟典型波动约 ${i.typicalMovePct.toFixed(2)}%,止损设得比这还紧,大概率会被正常波动打掉。`}
           </Text>
           {result?.settlementTx && <TxLink hash={result.settlementTx} label="这次付款的链上结算" />}
+          <Text
+            style={styles.verify}
+            onPress={() => Linking.openURL(`${EXPLORER}/address/${CHAINLINK_AVAX_USD}/contract/43113/readContract`)}
+          >
+            数据来源:Chainlink AVAX/USD 喂价合约 ↗
+          </Text>
         </Card>
       )}
     </ScrollView>
@@ -114,4 +125,5 @@ const styles = StyleSheet.create({
   change: { ...type.title, ...type.num },
   stat: { ...type.small, color: colors.sub },
   summary: { ...type.body, color: colors.text, marginTop: space.l, lineHeight: 23, fontSize: 15 },
+  verify: { ...type.small, color: colors.sub, textDecorationLine: "underline", marginTop: space.s, lineHeight: 18 },
 });
